@@ -4,6 +4,48 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use std::mem;
+
+type Position = [f32; 3];
+type Color = [f32; 3];
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    position: Position,
+    color: Color,
+}
+
+impl Vertex {
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        use std::mem;
+        wgpu::VertexBufferDescriptor {
+            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: mem::size_of::<Position>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float3,
+                },  
+            ]
+        }
+    }
+}
+
+
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
+];
+
+unsafe impl bytemuck::Pod for Vertex {}
+unsafe impl bytemuck::Zeroable for Vertex {}
 
 struct State {
     surface: wgpu::Surface,
@@ -15,7 +57,11 @@ struct State {
 
     render_pipeline: wgpu::RenderPipeline,
 
+    vertex_buffer: wgpu::Buffer,
+    num_vertices: u32,
+
     size: winit::dpi::PhysicalSize<u32>,
+    
 }
 
 impl State {
@@ -42,6 +88,12 @@ impl State {
                 limits: Default::default(),
             })
             .await;
+
+        let vertex_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(VERTICES),
+            wgpu::BufferUsage::VERTEX,
+        );
+        let num_vertices = VERTICES.len() as u32;
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -96,15 +148,19 @@ impl State {
                 write_mask: wgpu::ColorWrite::ALL,
             }],
 
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList, // 1.
-            depth_stencil_state: None,                                 // 2.
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList, 
+            depth_stencil_state: None,                                 
+            
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16, // 3.
-                vertex_buffers: &[],                     // 4.
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[
+                    Vertex::desc(),
+                ],
             },
-            sample_count: 1,                  // 5.
-            sample_mask: !0,                  // 6.
-            alpha_to_coverage_enabled: false, // 7.
+                
+            sample_count: 1,                  
+            sample_mask: !0,                  
+            alpha_to_coverage_enabled: false, 
         });
 
         Self {
@@ -116,6 +172,8 @@ impl State {
             swap_chain,
             size,
             render_pipeline,
+            num_vertices,
+            vertex_buffer 
         }
     }
 
@@ -161,8 +219,9 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline); // 2.
-            render_pass.draw(0..3, 0..1)
+            render_pass.set_pipeline(&self.render_pipeline); 
+            render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
+            render_pass.draw(0..self.num_vertices, 0..1);
         }
 
         self.queue.submit(&[encoder.finish()]);
