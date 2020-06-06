@@ -1,1 +1,2 @@
-I'm planning on this being the renderer for some of my future projects. For now, I'm just going to be following [this tutorial](https://sotrh.github.io/learn-wgpu/). 
+I'm planning on this being the renderer for some of my future projects. But all I have so far are a few lousy triangles...
+
