@@ -1,10 +1,15 @@
 use cgmath::prelude::*;
+use lyon::math::{rect, Point};
+use lyon::tessellation::basic_shapes::*;
+use lyon::tessellation::geometry_builder::simple_builder;
+use lyon::tessellation::{FillOptions, VertexBuffers};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
 
+mod shaper;
 mod texture;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -257,6 +262,8 @@ struct State {
 
     depth_texture: texture::Texture,
 
+    shapes_to_draw: VertexBuffers<Point, u16>,
+
     instances: Vec<Instance>,
 
     instance_buffer: wgpu::Buffer,
@@ -500,6 +507,8 @@ impl State {
             device.create_buffer_with_data(bytemuck::cast_slice(INDICES), wgpu::BufferUsage::INDEX);
         let num_indices = INDICES.len() as u32;
 
+        let shapes_to_draw = shaper::examples_shapes();
+
         Self {
             surface,
             device,
@@ -521,6 +530,7 @@ impl State {
             instances,
             instance_buffer,
             depth_texture,
+            shapes_to_draw,
         }
     }
 
@@ -608,6 +618,7 @@ impl State {
             render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
             render_pass.set_index_buffer(&self.index_buffer, 0, 0);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
+            // render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
         }
 
         self.queue.submit(&[encoder.finish()]);
