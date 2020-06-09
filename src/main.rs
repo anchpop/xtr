@@ -30,28 +30,6 @@ struct Vertex {
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 
-impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        use std::mem;
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ],
-        }
-    }
-}
-
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-0.0868241, 0.49240386, 0.0],
@@ -445,12 +423,27 @@ impl State {
 
         let vs_src = include_str!("shader.vert");
         let fs_src = include_str!("shader.frag");
-
-        let vs_spirv = glsl_to_spirv::compile(vs_src, glsl_to_spirv::ShaderType::Vertex).unwrap();
-        let fs_spirv = glsl_to_spirv::compile(fs_src, glsl_to_spirv::ShaderType::Fragment).unwrap();
-
-        let vs_data = wgpu::read_spirv(vs_spirv).unwrap();
-        let fs_data = wgpu::read_spirv(fs_spirv).unwrap();
+        let mut compiler = shaderc::Compiler::new().unwrap();
+        let vs_spirv = compiler
+            .compile_into_spirv(
+                vs_src,
+                shaderc::ShaderKind::Vertex,
+                "shader.vert",
+                "main",
+                None,
+            )
+            .unwrap();
+        let fs_spirv = compiler
+            .compile_into_spirv(
+                fs_src,
+                shaderc::ShaderKind::Fragment,
+                "shader.frag",
+                "main",
+                None,
+            )
+            .unwrap();
+        let vs_data = wgpu::read_spirv(std::io::Cursor::new(vs_spirv.as_binary_u8())).unwrap();
+        let fs_data = wgpu::read_spirv(std::io::Cursor::new(fs_spirv.as_binary_u8())).unwrap();
         let vs_module = device.create_shader_module(&vs_data);
         let fs_module = device.create_shader_module(&fs_data);
 
@@ -485,7 +478,7 @@ impl State {
             }],
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[Vertex::desc()],
+                vertex_buffers: &[shaper::VectorVertex::desc()],
             },
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: texture::Texture::DEPTH_FORMAT,
@@ -575,6 +568,23 @@ impl State {
         self.queue.submit(&[encoder.finish()]);
     }
 
+    fn get_buffers(&self) -> (wgpu::Buffer, wgpu::Buffer) {
+        let points: Vec<shaper::VectorVertex> = self
+            .shapes_to_draw
+            .vertices
+            .iter()
+            .map(shaper::point_to_vertex)
+            .collect();
+        let vertex_buffer = self
+            .device
+            .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
+        let index_buffer = self.device.create_buffer_with_data(
+            bytemuck::cast_slice(&self.shapes_to_draw.indices),
+            wgpu::BufferUsage::INDEX,
+        );
+        (vertex_buffer, index_buffer)
+    }
+
     fn render(&mut self) {
         let frame = self
             .swap_chain
@@ -586,6 +596,8 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+
+        let (vertex_buffer, index_buffer) = self.get_buffers();
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -612,13 +624,17 @@ impl State {
                 }),
             });
 
+            let num_indices: u32 = self.shapes_to_draw.indices.len() as u32;
+
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
-            render_pass.set_index_buffer(&self.index_buffer, 0, 0);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
-            // render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
+            //render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
+            //render_pass.set_index_buffer(&self.index_buffer, 0, 0);
+            //render_pass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
+            render_pass.set_vertex_buffer(0, &vertex_buffer, 0, 0);
+            render_pass.set_index_buffer(&index_buffer, 0, 0);
+            render_pass.draw_indexed(0..num_indices, 0, 0..1);
         }
 
         self.queue.submit(&[encoder.finish()]);
