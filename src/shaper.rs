@@ -9,12 +9,12 @@ pub fn examples_shapes() -> VertexBuffers<Point, u16> {
     let options = FillOptions::tolerance(0.1);
 
     fill_rounded_rectangle(
-        &rect(0.0, 0.0, 100.0, 50.0),
+        &rect(0.0, 0.0, 0.3, 0.2),
         &BorderRadii {
-            top_left: 10.0,
-            top_right: 5.0,
-            bottom_left: 20.0,
-            bottom_right: 25.0,
+            top_left: 0.05,
+            top_right: 0.05,
+            bottom_left: 0.05,
+            bottom_right: 0.05,
         },
         &options,
         &mut simple_builder(&mut geometry),
@@ -37,8 +37,8 @@ type VertexColor = [f32; 4];
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct VectorVertex {
-    position: VertexPosition,
-    color: VertexColor,
+    pub position: VertexPosition,
+    pub color: VertexColor,
 }
 
 impl VectorVertex {
@@ -62,6 +62,8 @@ impl VectorVertex {
         }
     }
 }
+
+
 
 unsafe impl bytemuck::Pod for VectorVertex {}
 unsafe impl bytemuck::Zeroable for VectorVertex {}

@@ -449,7 +449,7 @@ impl State {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+                bind_group_layouts: &[&uniform_bind_group_layout],
             });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -568,7 +568,8 @@ impl State {
         self.queue.submit(&[encoder.finish()]);
     }
 
-    fn get_buffers(&self) -> (wgpu::Buffer, wgpu::Buffer) {
+    fn get_buffers(&self) -> (wgpu::Buffer, wgpu::Buffer, u32) {
+        /*
         let points: Vec<shaper::VectorVertex> = self
             .shapes_to_draw
             .vertices
@@ -582,7 +583,19 @@ impl State {
             bytemuck::cast_slice(&self.shapes_to_draw.indices),
             wgpu::BufferUsage::INDEX,
         );
-        (vertex_buffer, index_buffer)
+        (vertex_buffer, index_buffer)*/
+        let points: Vec<shaper::VectorVertex> = VERTICES
+            .iter()
+            .map(|v: &Vertex| shaper::VectorVertex {position: v.position, color: [0.9, 0.1, 0.1, 1.]})
+            .collect();
+        let vertex_buffer = self
+            .device
+            .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
+        let index_buffer = self.device.create_buffer_with_data(
+            bytemuck::cast_slice(&INDICES),
+            wgpu::BufferUsage::INDEX,
+        );
+        (vertex_buffer, index_buffer, INDICES.len() as u32)
     }
 
     fn render(&mut self) {
@@ -597,7 +610,7 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        let (vertex_buffer, index_buffer) = self.get_buffers();
+        let (vertex_buffer, index_buffer, num_indices) = self.get_buffers();
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -624,11 +637,8 @@ impl State {
                 }),
             });
 
-            let num_indices: u32 = self.shapes_to_draw.indices.len() as u32;
-
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             //render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
             //render_pass.set_index_buffer(&self.index_buffer, 0, 0);
             //render_pass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
