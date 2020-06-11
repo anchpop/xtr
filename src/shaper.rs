@@ -9,7 +9,7 @@ pub fn examples_shapes() -> VertexBuffers<Point, u16> {
     let options = FillOptions::tolerance(0.1);
 
     fill_rounded_rectangle(
-        &rect(0.0, 0.0, 0.3, 0.2),
+        &rect(0.0, 0.0, 0.9, 0.9),
         &BorderRadii {
             top_left: 0.05,
             top_right: 0.05,
@@ -62,8 +62,6 @@ impl VectorVertex {
         }
     }
 }
-
-
 
 unsafe impl bytemuck::Pod for VectorVertex {}
 unsafe impl bytemuck::Zeroable for VectorVertex {}

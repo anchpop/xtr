@@ -464,7 +464,7 @@ impl State {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: wgpu::CullMode::None,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
@@ -569,33 +569,41 @@ impl State {
     }
 
     fn get_buffers(&self) -> (wgpu::Buffer, wgpu::Buffer, u32) {
-        /*
-        let points: Vec<shaper::VectorVertex> = self
-            .shapes_to_draw
-            .vertices
-            .iter()
-            .map(shaper::point_to_vertex)
-            .collect();
-        let vertex_buffer = self
-            .device
-            .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
-        let index_buffer = self.device.create_buffer_with_data(
-            bytemuck::cast_slice(&self.shapes_to_draw.indices),
-            wgpu::BufferUsage::INDEX,
-        );
-        (vertex_buffer, index_buffer)*/
-        let points: Vec<shaper::VectorVertex> = VERTICES
-            .iter()
-            .map(|v: &Vertex| shaper::VectorVertex {position: v.position, color: [0.9, 0.1, 0.1, 1.]})
-            .collect();
-        let vertex_buffer = self
-            .device
-            .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
-        let index_buffer = self.device.create_buffer_with_data(
-            bytemuck::cast_slice(&INDICES),
-            wgpu::BufferUsage::INDEX,
-        );
-        (vertex_buffer, index_buffer, INDICES.len() as u32)
+        if true {
+            let points: Vec<shaper::VectorVertex> = self
+                .shapes_to_draw
+                .vertices
+                .iter()
+                .map(shaper::point_to_vertex)
+                .collect();
+            let vertex_buffer = self
+                .device
+                .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
+            let index_buffer = self.device.create_buffer_with_data(
+                bytemuck::cast_slice(&self.shapes_to_draw.indices),
+                wgpu::BufferUsage::INDEX,
+            );
+            (
+                vertex_buffer,
+                index_buffer,
+                self.shapes_to_draw.indices.len() as u32,
+            )
+        } else {
+            let points: Vec<shaper::VectorVertex> = VERTICES
+                .iter()
+                .map(|v: &Vertex| shaper::VectorVertex {
+                    position: v.position,
+                    color: [0.9, 0.1, 0.1, 1.],
+                })
+                .collect();
+            let vertex_buffer = self
+                .device
+                .create_buffer_with_data(bytemuck::cast_slice(&points), wgpu::BufferUsage::VERTEX);
+            let index_buffer = self
+                .device
+                .create_buffer_with_data(bytemuck::cast_slice(&INDICES), wgpu::BufferUsage::INDEX);
+            (vertex_buffer, index_buffer, INDICES.len() as u32)
+        }
     }
 
     fn render(&mut self) {
